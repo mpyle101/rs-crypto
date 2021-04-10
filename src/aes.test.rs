@@ -6,7 +6,7 @@ mod tests {
   fn it_works() {
     // Default configuration
     let data    = b"Some secrets to encrypt";
-    let crypter = aes::Aes::new(b"My password");
+    let crypter = aes::Crypter::new(b"My password");
     let cipher  = crypter.encrypt(data).unwrap();
     let plain   = crypter.decrypt(&cipher).unwrap();
     

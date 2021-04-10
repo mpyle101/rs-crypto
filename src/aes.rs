@@ -8,29 +8,29 @@ use crate::safekey::Key;
 #[path = "./aes.test.rs"]
 mod aes_test;
 
-pub fn ecb_128(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_128_ecb(), false)
+pub fn ecb_128(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_128_ecb(), false)
 }
-pub fn cbc_128(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_128_cbc(), false)
+pub fn cbc_128(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_128_cbc(), false)
 }
-pub fn cbc_192(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_192_cbc(), false)
+pub fn cbc_192(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_192_cbc(), false)
 }
-pub fn cbc_256(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_256_cbc(), false)
+pub fn cbc_256(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_256_cbc(), false)
 }
-pub fn gcm_128(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_128_gcm(), true)
+pub fn gcm_128(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_128_gcm(), true)
 }
-pub fn gcm_192(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_192_gcm(), true)
+pub fn gcm_192(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_192_gcm(), true)
 }
-pub fn gcm_256(key: &[u8]) -> Aes {
-  Aes::from(key, Cipher::aes_256_gcm(), true)
+pub fn gcm_256(key: &[u8]) -> Crypter {
+  Crypter::from(key, Cipher::aes_256_gcm(), true)
 }
 
-pub struct Aes<'a> {
+pub struct Crypter<'a> {
   aad: Vec<u8>,
   key: Key,
   cipher: Cipher,
@@ -39,19 +39,19 @@ pub struct Aes<'a> {
   is_aead: bool,
 }
 
-impl<'a> Aes<'a> {
+impl<'a> Crypter<'a> {
   const TAG_BYTES:  usize = 16;
   const SALT_BYTES: usize = 16;
 
-  pub fn new(key: &[u8]) -> Aes {
-    Aes::from(key, Cipher::aes_256_gcm(), true)
+  pub fn new(key: &[u8]) -> Self {
+    Crypter::from(key, Cipher::aes_256_gcm(), true)
   }
 
-  fn from(key: &[u8], cipher: Cipher, is_aead: bool) -> Aes {
+  fn from(key: &[u8], cipher: Cipher, is_aead: bool) -> Self {
     let mut config = argon2::Config::default();
     config.hash_length = cipher.key_len() as u32;
 
-    Aes {
+    Crypter {
       cipher,
       config,
       is_aead,
@@ -70,11 +70,11 @@ impl<'a> Aes<'a> {
     thread_rng().fill_bytes(&mut iv);
 
     let key = self.key.as_bytes();
-    let mut salt = [0; Aes::SALT_BYTES];
+    let mut salt = [0; Crypter::SALT_BYTES];
     thread_rng().fill_bytes(&mut salt);
     let secret = argon2::hash_raw(key, &salt, &self.config)?;
 
-    let mut tag = [0; Aes::TAG_BYTES];
+    let mut tag = [0; Crypter::TAG_BYTES];
     let encrypted = if self.is_aead {
       symm::encrypt_aead(self.cipher, &secret, Some(&iv), &self.aad, data, &mut tag)
     } else {
@@ -93,8 +93,8 @@ impl<'a> Aes<'a> {
 
   pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
     let key = self.key.as_bytes();
-    let (salt, data) = data.split_at(Aes::SALT_BYTES);
-    let (tag,  data) = data.split_at(Aes::TAG_BYTES);
+    let (salt, data) = data.split_at(Crypter::SALT_BYTES);
+    let (tag,  data) = data.split_at(Crypter::TAG_BYTES);
     let secret = argon2::hash_raw(key, &salt, &self.config)?;
     let (iv, data) = match self.iv_len {
       0 => (None, data),
