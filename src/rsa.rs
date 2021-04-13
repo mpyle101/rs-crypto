@@ -2,7 +2,7 @@ use openssl::hash::MessageDigest;
 use openssl::pkey::{ PKey, Public, Private, HasPublic };
 use openssl::rsa::{ Rsa, Padding };
 use openssl::sign::{ Signer, Verifier };
-
+use std::fmt;
 use crate::error::Error;
 
 const MODULOUS: u32 = 2048;
@@ -16,8 +16,40 @@ pub fn new() -> Result<Crypter<Private>, Error> {
   Crypter::<Private>::new()
 }
 
-pub fn from(pem: &str) -> Result<Crypter<Public>, Error> {
-  Crypter::<Public>::from(pem)
+pub fn from(key: PublicKey) -> Result<Crypter<Public>, Error> {
+  Crypter::<Public>::from(key)
+}
+
+pub struct PublicKey {
+  key: PKey<Public>,
+}
+
+impl PublicKey {
+  pub fn new(pem: &[u8]) -> Result<Self, Error> {
+    Ok(PublicKey { key: PKey::public_key_from_pem(pem)? })
+  }
+
+  pub fn from(pem: &str) -> Result<Self, Error> {
+    let rsakey = if pem.contains("BEGIN PUBLIC") {
+      Rsa::public_key_from_pem(pem.as_bytes())?
+    } else {
+      Rsa::public_key_from_pem_pkcs1(pem.as_bytes())?
+    };
+
+    Ok(PublicKey { key: PKey::from_rsa(rsakey)? })
+  }
+
+  pub fn to_pem(&self) -> Result<String, Error> {
+    let pem = self.key.public_key_to_pem()?;
+    Ok(String::from_utf8(pem)?)
+  }
+}
+
+impl fmt::Display for PublicKey {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let pem = self.key.public_key_to_pem()?;
+    write!(f, "{:?}", pem)
+  }
 }
 
 pub struct Crypter<T: HasPublic> {
@@ -30,19 +62,13 @@ impl<T: HasPublic> Crypter<T> {
     Ok(Crypter { key: PKey::from_rsa(rsakey)? })
   }
 
-  fn from(pem: &str) -> Result<Crypter<Public>, Error> {
-    let rsakey = if pem.contains("BEGIN PUBLIC") {
-      Rsa::public_key_from_pem(pem.as_bytes())?
-    } else {
-      Rsa::public_key_from_pem_pkcs1(pem.as_bytes())?
-    };
-
-    Ok(Crypter { key: PKey::from_rsa(rsakey)? })
+  fn from(public_key: PublicKey) -> Result<Crypter<Public>, Error> {
+    Ok(Crypter { key: public_key.key })
   }
   
-  pub fn to_pem(&self) -> Result<String, Error> {
+  pub fn public_key(&self) -> Result<PublicKey, Error> {
     let pem = self.key.public_key_to_pem()?;
-    Ok(String::from_utf8(pem)?)
+    PublicKey::new(&pem)
   }
 
   pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
