@@ -1,5 +1,5 @@
 pub mod aes;
-pub mod dh;
+pub mod ecdh;
 pub mod rsa;
 pub mod error;
 
