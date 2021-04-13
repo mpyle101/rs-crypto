@@ -2,7 +2,6 @@ use openssl::hash::MessageDigest;
 use openssl::pkey::{ PKey, Public, Private, HasPublic };
 use openssl::rsa::{ Rsa, Padding };
 use openssl::sign::{ Signer, Verifier };
-use std::fmt;
 use crate::error::Error;
 
 const MODULOUS: u32 = 2048;
@@ -26,7 +25,8 @@ pub struct PublicKey {
 
 impl PublicKey {
   pub fn new(pem: &[u8]) -> Result<Self, Error> {
-    Ok(PublicKey { key: PKey::public_key_from_pem(pem)? })
+    let rsakey = Rsa::public_key_from_pem(pem)?;
+    Ok(PublicKey { key: PKey::from_rsa(rsakey)? })
   }
 
   pub fn from(pem: &str) -> Result<Self, Error> {
@@ -40,15 +40,9 @@ impl PublicKey {
   }
 
   pub fn to_pem(&self) -> Result<String, Error> {
-    let pem = self.key.public_key_to_pem()?;
+    let key = self.key.rsa()?;
+    let pem = key.public_key_to_pem()?;
     Ok(String::from_utf8(pem)?)
-  }
-}
-
-impl fmt::Display for PublicKey {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let pem = self.key.public_key_to_pem()?;
-    write!(f, "{:?}", pem)
   }
 }
 

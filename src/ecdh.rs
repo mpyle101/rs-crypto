@@ -1,7 +1,7 @@
 use openssl::derive::Deriver;
 use openssl::ec::{ EcGroup, EcKey };
 use openssl::nid::Nid;
-use openssl::pkey::{ PKey, Private };
+use openssl::pkey::{ PKey, Public, Private };
 
 use crate::error::Error;
 
@@ -13,6 +13,43 @@ pub fn secp384r1() -> Result<Crypter, Error> {
 }
 pub fn secp521r1() -> Result<Crypter, Error> {
   Crypter::from(Nid::SECP521R1)
+}
+
+#[derive(Debug)]
+pub struct PublicKey {
+  key: PKey<Public>,
+}
+
+impl PublicKey {
+  pub fn new(pem: &[u8]) -> Result<Self, Error> {
+    let eckey = EcKey::public_key_from_pem(pem)?;
+    Ok(PublicKey { key: PKey::from_ec_key(eckey)? })
+  }
+
+  pub fn from(pem: &str) -> Result<Self, Error> {
+    let eckey = EcKey::public_key_from_pem(pem.as_bytes())?;
+    Ok(PublicKey { key: PKey::from_ec_key(eckey)? })
+  }
+
+  pub fn to_pem(&self) -> Result<String, Error> {
+    let key = self.key.ec_key()?;
+    let pem = key.public_key_to_pem()?;
+    Ok(String::from_utf8(pem)?)
+  }
+}
+
+impl PartialEq for PublicKey {
+  fn eq(&self, other: &Self) -> bool {
+    let pem1 = match self.key.public_key_to_pem() {
+      Ok(pem) => pem,
+      Err(_)  => return false,
+    };
+    let pem2 = match other.key.public_key_to_pem() {
+      Ok(pem) => pem,
+      Err(_)  => return false,
+    };
+    pem1 == pem2
+  }
 }
 
 pub struct Crypter {
@@ -31,15 +68,14 @@ impl Crypter {
     Ok(Crypter { key: PKey::from_ec_key(eckey)? })
   }
   
-  pub fn public_key(&self) -> Result<String, Error> {
+  pub fn public_key(&self) -> Result<PublicKey, Error> {
     let pem = self.key.public_key_to_pem()?;
-    Ok(String::from_utf8(pem)?)
+    PublicKey::new(&pem)
   }
 
-  pub fn compute(&self, pem: &str) -> Result<Vec<u8>, Error> {
-    let pkey = PKey::public_key_from_pem(pem.as_bytes())?;
+  pub fn compute(&self, peer: &PublicKey) -> Result<Vec<u8>, Error> {
     let mut deriver = Deriver::new(&self.key)?;
-    deriver.set_peer(&pkey)?;
+    deriver.set_peer(&peer.key)?;
     
     Ok(deriver.derive_to_vec()?)
   }
