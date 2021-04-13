@@ -5,13 +5,27 @@ use openssl::pkey::{ PKey, Private };
 
 use crate::error::Error;
 
+pub fn prime256v1() -> Result<Crypter, Error> {
+  Crypter::from(Nid::X9_62_PRIME256V1)
+}
+pub fn secp384r1() -> Result<Crypter, Error> {
+  Crypter::from(Nid::SECP384R1)
+}
+pub fn secp521r1() -> Result<Crypter, Error> {
+  Crypter::from(Nid::SECP521R1)
+}
+
 pub struct Crypter {
   key: PKey<Private>,
 }
 
 impl Crypter {
   pub fn new() -> Result<Self, Error> {
-    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)?;
+    Crypter::from(Nid::X9_62_PRIME256V1)
+  }
+
+  fn from(nid: Nid) -> Result<Self, Error> {
+    let group = EcGroup::from_curve_name(nid)?;
     let eckey = EcKey::generate(&group)?;
 
     Ok(Crypter { key: PKey::from_ec_key(eckey)? })
