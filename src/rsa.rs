@@ -2,6 +2,7 @@ use openssl::hash::MessageDigest;
 use openssl::pkey::{ PKey, Public, Private, HasPublic };
 use openssl::rsa::{ Rsa, Padding };
 use openssl::sign::{ Signer, Verifier };
+
 use crate::error::Error;
 
 const MODULOUS: u32 = 2048;
@@ -15,8 +16,8 @@ pub fn new() -> Result<Crypter<Private>, Error> {
   Crypter::<Private>::new()
 }
 
-pub fn from(key: PublicKey) -> Result<Crypter<Public>, Error> {
-  Crypter::<Public>::from(key)
+pub fn from(key: &PublicKey) -> Result<Crypter<Public>, Error> {
+  Crypter::<Public>::from(&key)
 }
 
 pub struct PublicKey {
@@ -56,8 +57,8 @@ impl<T: HasPublic> Crypter<T> {
     Ok(Crypter { key: PKey::from_rsa(rsakey)? })
   }
 
-  fn from(public_key: PublicKey) -> Result<Crypter<Public>, Error> {
-    Ok(Crypter { key: public_key.key })
+  fn from(public_key: &PublicKey) -> Result<Crypter<Public>, Error> {
+    Ok(Crypter { key: public_key.key.clone() })
   }
   
   pub fn public_key(&self) -> Result<PublicKey, Error> {
@@ -83,8 +84,7 @@ impl<T: HasPublic> Crypter<T> {
 }
 
 impl Crypter<Private> {
-  #[allow(dead_code)]
-  fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
+  pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
     let rsa = self.key.rsa()?;
     let mut buf = vec![0; self.key.size() as usize];
     let bytes = rsa.private_decrypt(data, &mut buf, PADDING)?;
@@ -93,8 +93,7 @@ impl Crypter<Private> {
     Ok(buf)
   }
 
-  #[allow(dead_code)]
-  fn sign(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
+  pub fn sign(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
     let md = MessageDigest::sha256();
     let mut signer = Signer::new(md, &self.key)?;
     signer.update(data)?;

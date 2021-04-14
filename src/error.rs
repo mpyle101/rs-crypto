@@ -8,6 +8,7 @@ pub enum Error {
   OpenSSL(ErrorStack),
   PEM(FromUtf8Error),
   RsaPublicKey,
+  DigestMismatch,
 }
 
 impl From<ErrorStack> for Error {

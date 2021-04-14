@@ -18,7 +18,8 @@ mod tests {
     let data   = b"Some secrets to encrypt & decrypt";
     let server = rsa::new().unwrap();
     let pkey_s = server.public_key().unwrap();
-    let client = rsa::from(pkey_s).unwrap();
+    let client = rsa::from(&pkey_s).unwrap();
+
     let cipher = client.encrypt(data).unwrap();
     let plain  = server.decrypt(&cipher).unwrap();
     
@@ -33,7 +34,8 @@ mod tests {
     let pkey_s = server.public_key().unwrap();
     let pem    = pkey_s.to_pem().unwrap();
     let pemkey = rsa::PublicKey::from(&pem).unwrap();
-    let client = rsa::from(pemkey).unwrap();
+    let client = rsa::from(&pemkey).unwrap();
+    
     let cipher = client.encrypt(data).unwrap();
     let plain  = server.decrypt(&cipher).unwrap();
     
@@ -55,7 +57,7 @@ mod tests {
     let data   = b"Some text to sign & verify";
     let server = rsa::new().unwrap();
     let pkey_s = server.public_key().unwrap();
-    let client = rsa::from(pkey_s).unwrap();
+    let client = rsa::from(&pkey_s).unwrap();
     let signed = server.sign(data).unwrap();
     
     assert!(client.verify(&signed, data).unwrap());
@@ -68,7 +70,7 @@ mod tests {
     let pkey_s = server.public_key().unwrap();
     let pem    = pkey_s.to_pem().unwrap();
     let pemkey = rsa::PublicKey::from(&pem).unwrap();
-    let client = rsa::from(pemkey).unwrap();
+    let client = rsa::from(&pemkey).unwrap();
     let signed = server.sign(data).unwrap();
     
     assert!(client.verify(&signed, data).unwrap());

@@ -2,6 +2,7 @@ use openssl::derive::Deriver;
 use openssl::ec::{ EcGroup, EcKey };
 use openssl::nid::Nid;
 use openssl::pkey::{ PKey, Public, Private };
+use std::ops::Deref;
 
 use crate::error::Error;
 
@@ -52,6 +53,19 @@ impl PartialEq for PublicKey {
   }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Secret {
+  secret: Vec<u8>,
+}
+
+impl Deref for Secret {
+  type Target = [u8];
+
+  fn deref(&self) -> &Self::Target {
+    return &self.secret
+  }
+}
+
 pub struct Crypter {
   key: PKey<Private>,
 }
@@ -64,7 +78,6 @@ impl Crypter {
   fn from(nid: Nid) -> Result<Self, Error> {
     let group = EcGroup::from_curve_name(nid)?;
     let eckey = EcKey::generate(&group)?;
-
     Ok(Crypter { key: PKey::from_ec_key(eckey)? })
   }
   
@@ -73,11 +86,10 @@ impl Crypter {
     PublicKey::new(&pem)
   }
 
-  pub fn compute(&self, peer: &PublicKey) -> Result<Vec<u8>, Error> {
+  pub fn compute(&self, peer: &PublicKey) -> Result<Secret, Error> {
     let mut deriver = Deriver::new(&self.key)?;
     deriver.set_peer(&peer.key)?;
-    
-    Ok(deriver.derive_to_vec()?)
+    Ok(Secret { secret: deriver.derive_to_vec()? })
   }
 }
 
@@ -88,10 +100,10 @@ mod tests {
 
   #[test]
   fn it_works() {
-    let server = Crypter::new().unwrap();
-    let client = Crypter::new().unwrap();
-    let pkey_s = server.public_key().unwrap();
-    let pkey_c = client.public_key().unwrap();
+    let server   = Crypter::new().unwrap();
+    let client   = Crypter::new().unwrap();
+    let pkey_s   = server.public_key().unwrap();
+    let pkey_c   = client.public_key().unwrap();
     let secret_s = server.compute(&pkey_c).unwrap();
     let secret_c = client.compute(&pkey_s).unwrap();
     

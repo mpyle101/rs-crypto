@@ -8,6 +8,16 @@ use crate::safekey::Key;
 #[path = "./aes.test.rs"]
 mod aes_test;
 
+pub fn encrypt(key: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
+  let crypter = Crypter::new(key);
+  crypter.encrypt(data)
+}
+
+pub fn decrypt(key: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
+  let crypter = Crypter::new(key);
+  crypter.decrypt(data)
+}
+
 pub fn ecb_128(key: &[u8]) -> Crypter {
   Crypter::from(key, Cipher::aes_128_ecb(), false)
 }

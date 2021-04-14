@@ -40,7 +40,6 @@ mod tests {
 
   #[test]
   fn authenticated() {
-    // Authenticated cipher
     let data    = b"Some secrets to encrypt";
     let crypter = aes::gcm_256(b"Secret password");
     let cipher  = crypter.encrypt(data).unwrap();
@@ -52,7 +51,6 @@ mod tests {
 
   #[test]
   fn authenticated_with_aad() {
-    // Authenticated cipher with aad
     let data = b"Some secrets to encrypt";
     let mut crypter = aes::gcm_256(b"Secret password");
     crypter.set_aad(b"Additional authentication data");
@@ -65,7 +63,6 @@ mod tests {
 
   #[test]
   fn authenticated_with_bad_aad() {
-    // Authenticated cipher with aad
     let data = b"Some secrets to encrypt";
     let mut crypter = aes::gcm_256(b"Secret password");
 
@@ -80,7 +77,6 @@ mod tests {
 
   #[test]
   fn authenticated_with_bad_tag() {
-    // Authenticated cipher with aad
     let data = b"Some secrets to encrypt";
     let mut crypter = aes::gcm_256(b"Secret password");
     
@@ -88,7 +84,7 @@ mod tests {
     let mut cipher = crypter.encrypt(data).unwrap();
     
     // Make sure the first tag byte is changed
-    cipher[16] = cipher[17] ^ 255;
+    cipher[16] = cipher[16] ^ 255;
     let result = crypter.decrypt(&cipher);
     
     assert!(result.is_err());
