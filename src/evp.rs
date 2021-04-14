@@ -107,4 +107,23 @@ mod tests {
     
     assert!(result.is_err());
   }
+
+  #[test]
+  fn bad_aes_key() {
+    let data = b"Some text to encrypt & decrypt";
+
+    let server  = ecdh::prime256v1().unwrap();
+    let client  = ecdh::prime256v1().unwrap();
+    let pkey_c  = client.public_key().unwrap();
+    let secret  = server.compute(&pkey_c).unwrap();
+    let crypter = rsa::new().unwrap();
+    let pubkey  = crypter.public_key().unwrap();
+
+    let mut cipher = encrypt(&pubkey, &secret, data).unwrap();
+    // Muck up the AES key
+    cipher[37] = cipher[37] ^ 255;
+    let result = decrypt(&crypter, &secret, &cipher);
+    
+    assert!(result.is_err());
+  }
 }
