@@ -9,14 +9,14 @@ use rand::{ thread_rng, RngCore };
 use crate::aes;
 use crate::ecdh::Secret;
 use crate::error::Error;
-use crate::rsa;
+use crate::rsa::{ Crypter, PublicKey };
 
 const DIGEST_BYTES: usize = 32;
 const AESKEY_BYTES: usize = 32;
 const ENCKEY_BYTES: usize = 256;
 
 pub fn encrypt(
-  pkey: &rsa::PublicKey,
+  pkey: &PublicKey,
   secret: &Secret,
   data: &[u8]
 ) -> Result<Vec<u8>, Error> {
@@ -29,7 +29,7 @@ pub fn encrypt(
   thread_rng().fill_bytes(&mut aeskey);
   let cipher = aes::encrypt(&aeskey, data)?;
 
-  let crypter = rsa::from(pkey)?;
+  let crypter = crate::rsa::from(pkey)?;
   let enckey  = crypter.encrypt(&aeskey)?;
 
   let capacity = digest.len() + enckey.len() + cipher.len();
@@ -42,7 +42,7 @@ pub fn encrypt(
 }
 
 pub fn decrypt(
-  crypter: &rsa::Crypter<Private>,
+  crypter: &Crypter<Private>,
   secret: &Secret,
   data: &[u8]
 ) -> Result<Vec<u8>, Error> {
@@ -69,6 +69,7 @@ pub fn decrypt(
 mod tests {
   use super::*;
   use crate::ecdh;
+  use crate::rsa;
 
   #[test]
   fn it_works() {
