@@ -20,8 +20,8 @@ pub fn encrypt(
   secret: &Secret,
   data: &[u8]
 ) -> Result<Vec<u8>, Error> {
-  let hkey = PKey::hmac(secret)?;
-  let mut signer = Signer::new(MessageDigest::sha256(), &hkey)?;
+  let hmac = PKey::hmac(secret)?;
+  let mut signer = Signer::new(MessageDigest::sha256(), &hmac)?;
   signer.update(data)?;
   let digest = signer.sign_to_vec()?;
 

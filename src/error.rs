@@ -1,14 +1,18 @@
 use argon2;
 use openssl::error::ErrorStack;
 use std::string::FromUtf8Error;
+use std::time::SystemTimeError;
 
 #[derive(Debug)]
 pub enum Error {
   Argon2(argon2::Error),
   OpenSSL(ErrorStack),
-  PEM(FromUtf8Error),
+  Stringify(FromUtf8Error),
+  SystemTime(SystemTimeError),
   RsaPublicKey,
   DigestMismatch,
+  BadTimeBytes,
+  BadTimeValue(u64)
 }
 
 impl From<ErrorStack> for Error {
@@ -25,6 +29,12 @@ impl From<argon2::Error> for Error {
 
 impl From<FromUtf8Error> for Error {
   fn from(e: FromUtf8Error) -> Error {
-    Error::PEM(e)
+    Error::Stringify(e)
+  }
+}
+
+impl From<SystemTimeError> for Error {
+  fn from(e: SystemTimeError) -> Error {
+    Error::SystemTime(e)
   }
 }
