@@ -5,6 +5,8 @@ use openssl::memcmp;
 use openssl::pkey::{ PKey, Private };
 use openssl::sign::Signer;
 use rand::{ thread_rng, RngCore };
+use std::ops::DerefMut;
+use zeroize::Zeroizing;
 
 use crate::aes;
 use crate::ecdh::Secret;
@@ -25,12 +27,12 @@ pub fn encrypt(
   signer.update(data)?;
   let digest = signer.sign_to_vec()?;
 
-  let mut aeskey = vec![0; AESKEY_BYTES];
-  thread_rng().fill_bytes(&mut aeskey);
-  let cipher = aes::encrypt(&aeskey, data)?;
+  let mut aeskey = Zeroizing::new([0u8; AESKEY_BYTES]);
+  thread_rng().fill_bytes(aeskey.deref_mut());
+  let cipher = aes::encrypt(aeskey.as_ref(), data)?;
 
   let crypter = crate::rsa::from(pkey)?;
-  let enckey  = crypter.encrypt(&aeskey)?;
+  let enckey  = crypter.encrypt(aeskey.as_ref())?;
 
   let capacity = digest.len() + enckey.len() + cipher.len();
   let mut result: Vec<u8> = Vec::with_capacity(capacity);
@@ -49,8 +51,8 @@ pub fn decrypt(
   let (digest, data) = data.split_at(DIGEST_BYTES);
   let (enckey, data) = data.split_at(ENCKEY_BYTES);
 
-  let aeskey = crypter.decrypt(enckey)?;
-  let plain  = aes::decrypt(&aeskey, data)?;
+  let aeskey = Zeroizing::new(crypter.decrypt(enckey)?);
+  let plain = aes::decrypt(&aeskey, data)?;
 
   let hkey = PKey::hmac(secret)?;
   let mut signer = Signer::new(MessageDigest::sha256(), &hkey)?;

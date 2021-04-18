@@ -6,7 +6,9 @@ use openssl::pkey::{ PKey, Private };
 use openssl::sign::Signer;
 use rand::{ thread_rng, RngCore };
 use std::convert::TryInto;
+use std::ops::DerefMut;
 use std::time::{ SystemTime };
+use zeroize::Zeroizing;
 
 use crate::aes;
 use crate::ecdh::Secret;
@@ -74,14 +76,14 @@ fn encrypt_with(
   signer.update(data)?;
   let digest = signer.sign_to_vec()?;
 
-  let mut aeskey = vec![0; AESKEY_BYTES];
-  thread_rng().fill_bytes(&mut aeskey);
+  let mut aeskey = Zeroizing::new(vec![0; AESKEY_BYTES]);
+  thread_rng().fill_bytes(aeskey.deref_mut());
   let cipher = aes::encrypt(&aeskey, data)?;
 
   // Encrypt the AES key the timestamp bytes (LE) together
   let crypter = crate::rsa::from(pkey)?;
-  let tsbkey  = [&tsb, &aeskey as &[u8]].concat();
-  let enckey  = crypter.encrypt(&tsbkey)?;
+  let tsbkey = Zeroizing::new([&tsb, &aeskey as &[u8]].concat());
+  let enckey = crypter.encrypt(&tsbkey)?;
 
   let capacity = digest.len() + enckey.len() + cipher.len();
   let mut result: Vec<u8> = Vec::with_capacity(capacity);
@@ -103,7 +105,7 @@ fn decrypt_with(
   let (enckey, data) = data.split_at(ENCKEY_BYTES);
 
   // Timestamp bytes (LE) and AES key
-  let tsbkey = crypter.decrypt(enckey)?;
+  let tsbkey = Zeroizing::new(crypter.decrypt(enckey)?);
   let (tsval, aeskey) = tsbkey.split_at(8);
 
   // Check time window

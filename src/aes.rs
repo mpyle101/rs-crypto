@@ -1,8 +1,8 @@
 use openssl::symm::{ self, Cipher };
 use rand::{ thread_rng, RngCore };
+use zeroize::Zeroize;
 
 use crate::error::Error;
-use crate::safekey::Key;
 
 #[cfg(test)]
 #[path = "./aes.test.rs"]
@@ -42,7 +42,7 @@ pub fn gcm_256(key: &[u8]) -> Crypter {
 
 pub struct Crypter<'a> {
   aad: Vec<u8>,
-  key: Key,
+  key: Vec<u8>,
   cipher: Cipher,
   config: argon2::Config<'a>,
   iv_len: usize,
@@ -66,7 +66,7 @@ impl<'a> Crypter<'a> {
       config,
       is_aead,
       aad: Vec::new(),
-      key: Key::from(key),
+      key: Vec::from(key),
       iv_len: cipher.iv_len().unwrap_or(0),
     }
   }
@@ -79,10 +79,9 @@ impl<'a> Crypter<'a> {
     let mut iv = vec![0; self.iv_len];
     thread_rng().fill_bytes(&mut iv);
 
-    let key = self.key.as_bytes();
     let mut salt = [0; Crypter::SALT_BYTES];
     thread_rng().fill_bytes(&mut salt);
-    let secret = argon2::hash_raw(key, &salt, &self.config)?;
+    let secret = argon2::hash_raw(&self.key, &salt, &self.config)?;
 
     let mut tag = [0; Crypter::TAG_BYTES];
     let encrypted = if self.is_aead {
@@ -102,10 +101,9 @@ impl<'a> Crypter<'a> {
   }
 
   pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
-    let key = self.key.as_bytes();
     let (salt, data) = data.split_at(Crypter::SALT_BYTES);
     let (tag,  data) = data.split_at(Crypter::TAG_BYTES);
-    let secret = argon2::hash_raw(key, &salt, &self.config)?;
+    let secret = argon2::hash_raw(&self.key, &salt, &self.config)?;
     let (iv, data) = match self.iv_len {
       0 => (None, data),
       _ => {
@@ -121,5 +119,11 @@ impl<'a> Crypter<'a> {
     }?;
 
     Ok(plain)
+  }
+}
+
+impl<'a> Drop for Crypter<'a> {
+  fn drop(&mut self) {
+    self.key.zeroize();
   }
 }

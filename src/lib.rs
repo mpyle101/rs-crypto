@@ -5,8 +5,6 @@ pub mod rsa;
 pub mod tse;
 pub mod error;
 
-mod safekey;
-
 pub use aes::encrypt as aes_encrypt;
 pub use aes::decrypt as aes_decrypt;
 pub use ecdh::prime256v1 as create_ecdh;
