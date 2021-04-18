@@ -1,3 +1,4 @@
+use aes_gcm;
 use argon2;
 use hmac::crypto_mac::InvalidKeyLength;
 use openssl::error::ErrorStack;
@@ -6,6 +7,7 @@ use std::time::SystemTimeError;
 
 #[derive(Debug)]
 pub enum Error {
+  AesGcm(aes_gcm::Error),
   Argon2(argon2::Error),
   OpenSSL(ErrorStack),
   Stringify(FromUtf8Error),
@@ -20,6 +22,12 @@ pub enum Error {
 impl From<ErrorStack> for Error {
   fn from(e: ErrorStack) -> Error {
     Error::OpenSSL(e)
+  }
+}
+
+impl From<aes_gcm::Error> for Error {
+  fn from(e: aes_gcm::Error) -> Error {
+    Error::AesGcm(e)
   }
 }
 

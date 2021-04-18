@@ -1,4 +1,5 @@
-use openssl::symm::{ self, Cipher };
+use aes_gcm::Aes256Gcm;
+use aes_gcm::aead::{ generic_array::GenericArray, Aead, NewAead, Payload };
 use rand::{ thread_rng, RngCore };
 use zeroize::Zeroize;
 
@@ -7,6 +8,10 @@ use crate::error::Error;
 #[cfg(test)]
 #[path = "./aes.test.rs"]
 mod aes_test;
+
+const IV_BYTES: usize   = 12;
+const KEY_BYTES: u32    = 32;
+const SALT_BYTES: usize = 16;
 
 pub fn encrypt(key: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
   let crypter = Crypter::new(key);
@@ -18,56 +23,25 @@ pub fn decrypt(key: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
   crypter.decrypt(data)
 }
 
-pub fn ecb_128(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_128_ecb(), false)
-}
-pub fn cbc_128(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_128_cbc(), false)
-}
-pub fn cbc_192(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_192_cbc(), false)
-}
-pub fn cbc_256(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_256_cbc(), false)
-}
-pub fn gcm_128(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_128_gcm(), true)
-}
-pub fn gcm_192(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_192_gcm(), true)
-}
-pub fn gcm_256(key: &[u8]) -> Crypter {
-  Crypter::from(key, Cipher::aes_256_gcm(), true)
+pub fn new(key: &[u8]) -> Crypter {
+  Crypter::new(key)
 }
 
 pub struct Crypter<'a> {
   aad: Vec<u8>,
   key: Vec<u8>,
-  cipher: Cipher,
   config: argon2::Config<'a>,
-  iv_len: usize,
-  is_aead: bool,
 }
 
 impl<'a> Crypter<'a> {
-  const TAG_BYTES:  usize = 16;
-  const SALT_BYTES: usize = 16;
-
   pub fn new(key: &[u8]) -> Self {
-    Crypter::from(key, Cipher::aes_256_gcm(), true)
-  }
-
-  fn from(key: &[u8], cipher: Cipher, is_aead: bool) -> Self {
     let mut config = argon2::Config::default();
-    config.hash_length = cipher.key_len() as u32;
+    config.hash_length = KEY_BYTES;
 
     Crypter {
-      cipher,
       config,
-      is_aead,
       aad: Vec::new(),
       key: Vec::from(key),
-      iv_len: cipher.iv_len().unwrap_or(0),
     }
   }
 
@@ -76,24 +50,21 @@ impl<'a> Crypter<'a> {
   }
 
   pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut iv = vec![0; self.iv_len];
+    let mut iv = [0; IV_BYTES];
     thread_rng().fill_bytes(&mut iv);
+    let nonce = GenericArray::from_slice(&iv);
 
-    let mut salt = [0; Crypter::SALT_BYTES];
+    let mut salt = [0; SALT_BYTES];
     thread_rng().fill_bytes(&mut salt);
-    let secret = argon2::hash_raw(&self.key, &salt, &self.config)?;
+    let aeskey = argon2::hash_raw(&self.key, &salt, &self.config)?;
+    let cipher = Aes256Gcm::new(GenericArray::from_slice(&aeskey));
 
-    let mut tag = [0; Crypter::TAG_BYTES];
-    let encrypted = if self.is_aead {
-      symm::encrypt_aead(self.cipher, &secret, Some(&iv), &self.aad, data, &mut tag)
-    } else {
-      symm::encrypt(self.cipher, &secret, Some(&iv), data)
-    }?;
+    let payload = Payload { msg: data, aad: &self.aad };
+    let encrypted = cipher.encrypt(nonce, payload)?;
 
-    let capacity = salt.len() + self.iv_len + encrypted.len();
+    let capacity = salt.len() + IV_BYTES + encrypted.len();
     let mut result: Vec<u8> = Vec::with_capacity(capacity);
     result.extend_from_slice(&salt);
-    result.extend_from_slice(&tag);
     result.extend_from_slice(&iv);
     result.extend(encrypted);
 
@@ -101,22 +72,15 @@ impl<'a> Crypter<'a> {
   }
 
   pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
-    let (salt, data) = data.split_at(Crypter::SALT_BYTES);
-    let (tag,  data) = data.split_at(Crypter::TAG_BYTES);
-    let secret = argon2::hash_raw(&self.key, &salt, &self.config)?;
-    let (iv, data) = match self.iv_len {
-      0 => (None, data),
-      _ => {
-        let (iv, data) = data.split_at(self.iv_len);
-        (Some(iv), data)
-      },
-    };
+    let (salt, data) = data.split_at(SALT_BYTES);
+    let (iv,   data) = data.split_at(IV_BYTES);
 
-    let plain = if self.is_aead {
-      symm::decrypt_aead(self.cipher, &secret, iv, &self.aad, data, tag)
-    } else {
-      symm::decrypt(self.cipher, &secret, iv, data)
-    }?;
+    let nonce  = GenericArray::from_slice(&iv);
+    let aeskey = argon2::hash_raw(&self.key, &salt, &self.config)?;
+    let cipher = Aes256Gcm::new(GenericArray::from_slice(&aeskey));
+
+    let payload = Payload { msg: data, aad: &self.aad };
+    let plain = cipher.decrypt(nonce, payload)?;
 
     Ok(plain)
   }

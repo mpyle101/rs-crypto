@@ -4,9 +4,8 @@ version = "0.1.0"
 authors = ["Michael Pyle <mpyle101@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+aes-gcm = "0.8.0"
 hmac = "0.10.1"
 openssl = "0.10.33"
 rand = "0.8.3"

@@ -15,33 +15,9 @@ mod tests {
   }
 
   #[test]
-  fn specify_cipher() {
-    // Specify the cipher
+  fn module_new() {
     let data    = b"Some secrets to encrypt";
-    let crypter = aes::cbc_128(b"Secret password");
-    let cipher  = crypter.encrypt(data).unwrap();
-    let plain   = crypter.decrypt(&cipher).unwrap();
-    
-    assert_eq!(data, &plain[..]);
-    assert_ne!(data, &cipher[..]);
-  }
-
-  #[test]
-  fn cipher_with_no_iv() {
-    // Specify no IV cipher
-    let data    = b"Some secrets to encrypt";
-    let crypter = aes::ecb_128(b"Secret password");
-    let cipher  = crypter.encrypt(data).unwrap();
-    let plain   = crypter.decrypt(&cipher).unwrap();
-    
-    assert_eq!(data, &plain[..]);
-    assert_ne!(data, &cipher[..]);
-  }
-
-  #[test]
-  fn authenticated() {
-    let data    = b"Some secrets to encrypt";
-    let crypter = aes::gcm_256(b"Secret password");
+    let crypter = aes::new(b"Secret password");
     let cipher  = crypter.encrypt(data).unwrap();
     let plain   = crypter.decrypt(&cipher).unwrap();
     
@@ -52,7 +28,7 @@ mod tests {
   #[test]
   fn authenticated_with_aad() {
     let data = b"Some secrets to encrypt";
-    let mut crypter = aes::gcm_256(b"Secret password");
+    let mut crypter = aes::new(b"Secret password");
     crypter.set_aad(b"Additional authentication data");
     let cipher = crypter.encrypt(data).unwrap();
     let plain  = crypter.decrypt(&cipher).unwrap();
@@ -64,7 +40,7 @@ mod tests {
   #[test]
   fn authenticated_with_bad_aad() {
     let data = b"Some secrets to encrypt";
-    let mut crypter = aes::gcm_256(b"Secret password");
+    let mut crypter = aes::new(b"Secret password");
 
     crypter.set_aad(b"Additional authentication data");
     let cipher = crypter.encrypt(data).unwrap();
@@ -76,14 +52,14 @@ mod tests {
   }
 
   #[test]
-  fn authenticated_with_bad_tag() {
+  fn authenticated_with_bad_cipher() {
     let data = b"Some secrets to encrypt";
-    let mut crypter = aes::gcm_256(b"Secret password");
+    let mut crypter = aes::new(b"Secret password");
     
     crypter.set_aad(b"Additional authentication data");
     let mut cipher = crypter.encrypt(data).unwrap();
     
-    // Make sure the first tag byte is changed
+    // Make sure the byte is changed
     cipher[16] = cipher[16] ^ 255;
     let result = crypter.decrypt(&cipher);
     
