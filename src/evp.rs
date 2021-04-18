@@ -1,10 +1,10 @@
 /** Envelope Encryption */
 
-use openssl::hash::MessageDigest;
+use hmac::{ Hmac, Mac, NewMac };
 use openssl::memcmp;
-use openssl::pkey::{ PKey, Private };
-use openssl::sign::Signer;
+use openssl::pkey::Private;
 use rand::{ thread_rng, RngCore };
+use sha2::Sha256;
 use std::ops::DerefMut;
 use zeroize::Zeroizing;
 
@@ -17,15 +17,16 @@ const DIGEST_BYTES: usize = 32;
 const AESKEY_BYTES: usize = 32;
 const ENCKEY_BYTES: usize = 256;
 
+type HmacSha256 = Hmac<Sha256>;
+
 pub fn encrypt(
   pkey: &PublicKey,
   secret: &Secret,
   data: &[u8]
 ) -> Result<Vec<u8>, Error> {
-  let hmac = PKey::hmac(secret)?;
-  let mut signer = Signer::new(MessageDigest::sha256(), &hmac)?;
-  signer.update(data)?;
-  let digest = signer.sign_to_vec()?;
+  let mut signer = HmacSha256::new_varkey(secret)?;
+  signer.update(data);
+  let digest = signer.finalize().into_bytes();
 
   let mut aeskey = Zeroizing::new([0u8; AESKEY_BYTES]);
   thread_rng().fill_bytes(aeskey.deref_mut());
@@ -54,10 +55,9 @@ pub fn decrypt(
   let aeskey = Zeroizing::new(crypter.decrypt(enckey)?);
   let plain = aes::decrypt(&aeskey, data)?;
 
-  let hkey = PKey::hmac(secret)?;
-  let mut signer = Signer::new(MessageDigest::sha256(), &hkey)?;
-  signer.update(&plain)?;
-  let target = signer.sign_to_vec()?;
+  let mut signer = HmacSha256::new_varkey(secret)?;
+  signer.update(&plain);
+  let target = signer.finalize().into_bytes();
   if !memcmp::eq(digest, &target) {
     return Err(Error::DigestMismatch);
   }

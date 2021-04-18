@@ -1,4 +1,5 @@
 use argon2;
+use hmac::crypto_mac::InvalidKeyLength;
 use openssl::error::ErrorStack;
 use std::string::FromUtf8Error;
 use std::time::SystemTimeError;
@@ -9,6 +10,7 @@ pub enum Error {
   OpenSSL(ErrorStack),
   Stringify(FromUtf8Error),
   SystemTime(SystemTimeError),
+  BadDigest(InvalidKeyLength),
   RsaPublicKey,
   DigestMismatch,
   BadTimeBytes,
@@ -36,5 +38,11 @@ impl From<FromUtf8Error> for Error {
 impl From<SystemTimeError> for Error {
   fn from(e: SystemTimeError) -> Error {
     Error::SystemTime(e)
+  }
+}
+
+impl From<InvalidKeyLength> for Error {
+  fn from(e: InvalidKeyLength) -> Error {
+    Error::BadDigest(e)
   }
 }

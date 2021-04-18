@@ -1,10 +1,10 @@
 /** Timestamped Encryption */
 
-use openssl::hash::MessageDigest;
+use hmac::{ Hmac, Mac, NewMac };
 use openssl::memcmp;
-use openssl::pkey::{ PKey, Private };
-use openssl::sign::Signer;
+use openssl::pkey::Private;
 use rand::{ thread_rng, RngCore };
+use sha2::Sha256;
 use std::convert::TryInto;
 use std::ops::DerefMut;
 use std::time::{ SystemTime };
@@ -61,6 +61,8 @@ impl Crypter {
   }
 }
 
+type HmacSha256 = Hmac<Sha256>;
+
 fn encrypt_with(
   pkey: &PublicKey,
   secret: &Secret,
@@ -71,10 +73,9 @@ fn encrypt_with(
 
   // Sign based on the secret and the timestamp
   let hkey = [&tsb, &secret as &[u8]].concat();
-  let hmac = PKey::hmac(&hkey)?;
-  let mut signer = Signer::new(MessageDigest::sha256(), &hmac)?;
-  signer.update(data)?;
-  let digest = signer.sign_to_vec()?;
+  let mut signer = HmacSha256::new_varkey(&hkey)?;
+  signer.update(data);
+  let digest = signer.finalize().into_bytes();
 
   let mut aeskey = Zeroizing::new(vec![0; AESKEY_BYTES]);
   thread_rng().fill_bytes(aeskey.deref_mut());
@@ -117,10 +118,9 @@ fn decrypt_with(
   let plain = aes::decrypt(aeskey, data)?;
 
   let hkey = [&tsb, &secret as &[u8]].concat();
-  let hmac = PKey::hmac(&hkey)?;
-  let mut signer = Signer::new(MessageDigest::sha256(), &hmac)?;
-  signer.update(&plain)?;
-  let target = signer.sign_to_vec()?;
+  let mut signer = HmacSha256::new_varkey(&hkey)?;
+  signer.update(&plain);
+  let target = signer.finalize().into_bytes();
   if !memcmp::eq(digest, &target) {
     return Err(Error::DigestMismatch);
   }
