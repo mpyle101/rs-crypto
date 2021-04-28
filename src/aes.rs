@@ -1,6 +1,6 @@
+use aes_gcm::aead::{generic_array::GenericArray, Aead, NewAead, Payload};
 use aes_gcm::Aes256Gcm;
-use aes_gcm::aead::{ generic_array::GenericArray, Aead, NewAead, Payload };
-use rand::{ thread_rng, RngCore };
+use rand::{thread_rng, RngCore};
 use zeroize::Zeroize;
 
 use crate::error::Error;
@@ -9,8 +9,8 @@ use crate::error::Error;
 #[path = "./aes.test.rs"]
 mod aes_test;
 
-const IV_BYTES: usize   = 12;
-const KEY_BYTES: u32    = 32;
+const IV_BYTES: usize = 12;
+const KEY_BYTES: u32 = 32;
 const SALT_BYTES: usize = 16;
 
 pub fn encrypt(key: &[u8], data: &[u8]) -> Result<Vec<u8>, Error> {
@@ -59,7 +59,10 @@ impl<'a> Crypter<'a> {
     let aeskey = argon2::hash_raw(&self.key, &salt, &self.config)?;
     let cipher = Aes256Gcm::new(GenericArray::from_slice(&aeskey));
 
-    let payload = Payload { msg: data, aad: &self.aad };
+    let payload = Payload {
+      msg: data,
+      aad: &self.aad,
+    };
     let encrypted = cipher.encrypt(nonce, payload)?;
 
     let capacity = salt.len() + IV_BYTES + encrypted.len();
@@ -73,13 +76,16 @@ impl<'a> Crypter<'a> {
 
   pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
     let (salt, data) = data.split_at(SALT_BYTES);
-    let (iv,   data) = data.split_at(IV_BYTES);
+    let (iv, data) = data.split_at(IV_BYTES);
 
-    let nonce  = GenericArray::from_slice(&iv);
+    let nonce = GenericArray::from_slice(&iv);
     let aeskey = argon2::hash_raw(&self.key, &salt, &self.config)?;
     let cipher = Aes256Gcm::new(GenericArray::from_slice(&aeskey));
 
-    let payload = Payload { msg: data, aad: &self.aad };
+    let payload = Payload {
+      msg: data,
+      aad: &self.aad,
+    };
     let plain = cipher.decrypt(nonce, payload)?;
 
     Ok(plain)

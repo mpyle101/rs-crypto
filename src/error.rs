@@ -16,7 +16,7 @@ pub enum Error {
   RsaPublicKey,
   DigestMismatch,
   BadTimeBytes,
-  BadTimeValue(u64)
+  BadTimeValue(u64),
 }
 
 impl From<ErrorStack> for Error {

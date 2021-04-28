@@ -1,19 +1,18 @@
 /** Timestamped Encryption */
-
-use hmac::{ Hmac, Mac, NewMac };
+use hmac::{Hmac, Mac, NewMac};
 use openssl::memcmp;
 use openssl::pkey::Private;
-use rand::{ thread_rng, RngCore };
+use rand::{thread_rng, RngCore};
 use sha2::Sha256;
 use std::convert::TryInto;
 use std::ops::DerefMut;
-use std::time::{ SystemTime };
+use std::time::SystemTime;
 use zeroize::Zeroizing;
 
 use crate::aes;
 use crate::ecdh::Secret;
 use crate::error::Error;
-use crate::rsa::{ self, PublicKey };
+use crate::rsa::{self, PublicKey};
 
 const DIGEST_BYTES: usize = 32;
 const AESKEY_BYTES: usize = 32;
@@ -33,21 +32,15 @@ pub struct Crypter {
 }
 
 impl Crypter {
-
   pub fn new() -> Self {
-    Crypter{ window: WINDOW }
+    Crypter { window: WINDOW }
   }
 
   pub fn from(window: u64) -> Self {
-    Crypter{ window }
+    Crypter { window }
   }
 
-  pub fn encrypt(
-    &self,
-    pkey: &PublicKey,
-    secret: &Secret,
-    data: &[u8]
-  ) -> Result<Vec<u8>, Error> {
+  pub fn encrypt(&self, pkey: &PublicKey, secret: &Secret, data: &[u8]) -> Result<Vec<u8>, Error> {
     encrypt_with(pkey, secret, now()?, data)
   }
 
@@ -55,7 +48,7 @@ impl Crypter {
     &self,
     crypter: &rsa::Crypter<Private>,
     secret: &Secret,
-    data: &[u8]
+    data: &[u8],
   ) -> Result<Vec<u8>, Error> {
     decrypt_with(crypter, secret, now()?, self.window, data)
   }
@@ -67,7 +60,7 @@ fn encrypt_with(
   pkey: &PublicKey,
   secret: &Secret,
   time: u64,
-  data: &[u8]
+  data: &[u8],
 ) -> Result<Vec<u8>, Error> {
   let tsb = time.to_le_bytes();
 
@@ -100,7 +93,7 @@ fn decrypt_with(
   secret: &Secret,
   time: u64,
   window: u64,
-  data: &[u8]
+  data: &[u8],
 ) -> Result<Vec<u8>, Error> {
   let (digest, data) = data.split_at(DIGEST_BYTES);
   let (enckey, data) = data.split_at(ENCKEY_BYTES);
@@ -152,9 +145,9 @@ mod tests {
     let pubkey = rsacrp.public_key().unwrap();
 
     let crypter = Crypter::new();
-    let cipher  = crypter.encrypt(&pubkey, &secret, data).unwrap();
-    let plain   = crypter.decrypt(&rsacrp, &secret, &cipher).unwrap();
-    
+    let cipher = crypter.encrypt(&pubkey, &secret, data).unwrap();
+    let plain = crypter.decrypt(&rsacrp, &secret, &cipher).unwrap();
+
     assert_ne!(cipher, plain);
     assert_eq!(plain, data);
   }
@@ -163,17 +156,17 @@ mod tests {
   fn with_now() {
     let data = b"Some text to encrypt & decrypt";
 
-    let server  = ecdh::prime256v1().unwrap();
-    let client  = ecdh::prime256v1().unwrap();
-    let pkey_c  = client.public_key().unwrap();
-    let secret  = server.compute(&pkey_c).unwrap();
+    let server = ecdh::prime256v1().unwrap();
+    let client = ecdh::prime256v1().unwrap();
+    let pkey_c = client.public_key().unwrap();
+    let secret = server.compute(&pkey_c).unwrap();
     let crypter = rsa::new().unwrap();
-    let pubkey  = crypter.public_key().unwrap();
+    let pubkey = crypter.public_key().unwrap();
 
     let time = now().unwrap();
     let cipher = encrypt_with(&pubkey, &secret, time, data).unwrap();
-    let plain  = decrypt_with(&crypter, &secret, time, WINDOW, &cipher).unwrap();
-    
+    let plain = decrypt_with(&crypter, &secret, time, WINDOW, &cipher).unwrap();
+
     assert_ne!(cipher, plain);
     assert_eq!(plain, data);
   }
@@ -182,18 +175,18 @@ mod tests {
   fn with_future() {
     let data = b"Some text to encrypt & decrypt";
 
-    let server  = ecdh::prime256v1().unwrap();
-    let client  = ecdh::prime256v1().unwrap();
-    let pkey_c  = client.public_key().unwrap();
-    let secret  = server.compute(&pkey_c).unwrap();
+    let server = ecdh::prime256v1().unwrap();
+    let client = ecdh::prime256v1().unwrap();
+    let pkey_c = client.public_key().unwrap();
+    let secret = server.compute(&pkey_c).unwrap();
     let crypter = rsa::new().unwrap();
-    let pubkey  = crypter.public_key().unwrap();
+    let pubkey = crypter.public_key().unwrap();
 
     let time = now().unwrap();
     let then = time + 30;
     let cipher = encrypt_with(&pubkey, &secret, time, data).unwrap();
-    let plain  = decrypt_with(&crypter, &secret, then, 30, &cipher).unwrap();
-    
+    let plain = decrypt_with(&crypter, &secret, then, 30, &cipher).unwrap();
+
     assert_ne!(cipher, plain);
     assert_eq!(plain, data);
   }
@@ -202,18 +195,18 @@ mod tests {
   fn with_past() {
     let data = b"Some text to encrypt & decrypt";
 
-    let server  = ecdh::prime256v1().unwrap();
-    let client  = ecdh::prime256v1().unwrap();
-    let pkey_c  = client.public_key().unwrap();
-    let secret  = server.compute(&pkey_c).unwrap();
+    let server = ecdh::prime256v1().unwrap();
+    let client = ecdh::prime256v1().unwrap();
+    let pkey_c = client.public_key().unwrap();
+    let secret = server.compute(&pkey_c).unwrap();
     let crypter = rsa::new().unwrap();
-    let pubkey  = crypter.public_key().unwrap();
+    let pubkey = crypter.public_key().unwrap();
 
     let time = now().unwrap();
     let then = time - 30;
     let cipher = encrypt_with(&pubkey, &secret, time, data).unwrap();
-    let plain  = decrypt_with(&crypter, &secret, then, 30, &cipher).unwrap();
-    
+    let plain = decrypt_with(&crypter, &secret, then, 30, &cipher).unwrap();
+
     assert_ne!(cipher, plain);
     assert_eq!(plain, data);
   }
@@ -222,18 +215,18 @@ mod tests {
   fn with_future_fails() {
     let data = b"Some text to encrypt & decrypt";
 
-    let server  = ecdh::prime256v1().unwrap();
-    let client  = ecdh::prime256v1().unwrap();
-    let pkey_c  = client.public_key().unwrap();
-    let secret  = server.compute(&pkey_c).unwrap();
+    let server = ecdh::prime256v1().unwrap();
+    let client = ecdh::prime256v1().unwrap();
+    let pkey_c = client.public_key().unwrap();
+    let secret = server.compute(&pkey_c).unwrap();
     let crypter = rsa::new().unwrap();
-    let pubkey  = crypter.public_key().unwrap();
+    let pubkey = crypter.public_key().unwrap();
 
     let time = now().unwrap();
     let then = time + 31;
     let cipher = encrypt_with(&pubkey, &secret, time, data).unwrap();
     let result = decrypt_with(&crypter, &secret, then, 30, &cipher);
-    
+
     assert!(result.is_err());
   }
 
@@ -241,18 +234,18 @@ mod tests {
   fn with_past_fails() {
     let data = b"Some text to encrypt & decrypt";
 
-    let server  = ecdh::prime256v1().unwrap();
-    let client  = ecdh::prime256v1().unwrap();
-    let pkey_c  = client.public_key().unwrap();
-    let secret  = server.compute(&pkey_c).unwrap();
+    let server = ecdh::prime256v1().unwrap();
+    let client = ecdh::prime256v1().unwrap();
+    let pkey_c = client.public_key().unwrap();
+    let secret = server.compute(&pkey_c).unwrap();
     let crypter = rsa::new().unwrap();
-    let pubkey  = crypter.public_key().unwrap();
+    let pubkey = crypter.public_key().unwrap();
 
     let time = now().unwrap();
     let then = time - 31;
     let cipher = encrypt_with(&pubkey, &secret, time, data).unwrap();
     let result = decrypt_with(&crypter, &secret, then, 30, &cipher);
-    
+
     assert!(result.is_err());
   }
 }

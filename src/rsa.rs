@@ -1,7 +1,7 @@
 use openssl::hash::MessageDigest;
-use openssl::pkey::{ PKey, Public, Private, HasPublic };
-use openssl::rsa::{ Rsa, Padding };
-use openssl::sign::{ Signer, Verifier };
+use openssl::pkey::{HasPublic, PKey, Private, Public};
+use openssl::rsa::{Padding, Rsa};
+use openssl::sign::{Signer, Verifier};
 
 use crate::error::Error;
 
@@ -27,7 +27,9 @@ pub struct PublicKey {
 impl PublicKey {
   pub fn new(pem: &[u8]) -> Result<Self, Error> {
     let rsakey = Rsa::public_key_from_pem(pem)?;
-    Ok(PublicKey { key: PKey::from_rsa(rsakey)? })
+    Ok(PublicKey {
+      key: PKey::from_rsa(rsakey)?,
+    })
   }
 
   pub fn from(pem: &str) -> Result<Self, Error> {
@@ -37,7 +39,9 @@ impl PublicKey {
       Rsa::public_key_from_pem_pkcs1(pem.as_bytes())?
     };
 
-    Ok(PublicKey { key: PKey::from_rsa(rsakey)? })
+    Ok(PublicKey {
+      key: PKey::from_rsa(rsakey)?,
+    })
   }
 
   pub fn to_pem(&self) -> Result<String, Error> {
@@ -54,13 +58,17 @@ pub struct Crypter<T: HasPublic> {
 impl<T: HasPublic> Crypter<T> {
   pub fn new() -> Result<Crypter<Private>, Error> {
     let rsakey = Rsa::generate(MODULOUS)?;
-    Ok(Crypter { key: PKey::from_rsa(rsakey)? })
+    Ok(Crypter {
+      key: PKey::from_rsa(rsakey)?,
+    })
   }
 
   fn from(public_key: &PublicKey) -> Result<Crypter<Public>, Error> {
-    Ok(Crypter { key: public_key.key.clone() })
+    Ok(Crypter {
+      key: public_key.key.clone(),
+    })
   }
-  
+
   pub fn public_key(&self) -> Result<PublicKey, Error> {
     let pem = self.key.public_key_to_pem()?;
     PublicKey::new(&pem)
