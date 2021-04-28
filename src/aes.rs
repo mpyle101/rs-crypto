@@ -35,8 +35,10 @@ pub struct Crypter<'a> {
 
 impl<'a> Crypter<'a> {
   pub fn new(key: &[u8]) -> Self {
-    let mut config = argon2::Config::default();
-    config.hash_length = KEY_BYTES;
+    let config = argon2::Config {
+      hash_length: KEY_BYTES,
+      ..Default::default()
+    };
 
     Crypter {
       config,

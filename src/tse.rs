@@ -20,7 +20,7 @@ const ENCKEY_BYTES: usize = 256;
 const WINDOW: u64 = 30;
 
 pub fn new() -> Crypter {
-  Crypter::new()
+  Crypter::default()
 }
 
 pub fn from(window: u64) -> Crypter {
@@ -29,6 +29,12 @@ pub fn from(window: u64) -> Crypter {
 
 pub struct Crypter {
   window: u64,
+}
+
+impl Default for Crypter {
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Crypter {
@@ -75,7 +81,7 @@ fn encrypt_with(
   let cipher = aes::encrypt(&aeskey, data)?;
 
   // Encrypt the AES key the timestamp bytes (LE) together
-  let crypter = crate::rsa::from(pkey)?;
+  let crypter = crate::rsa::from(pkey);
   let tsbkey = Zeroizing::new([&tsb, &aeskey as &[u8]].concat());
   let enckey = crypter.encrypt(&tsbkey)?;
 

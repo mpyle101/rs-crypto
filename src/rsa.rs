@@ -13,10 +13,10 @@ const PADDING: Padding = Padding::PKCS1_OAEP;
 mod rsa_test;
 
 pub fn new() -> Result<Crypter<Private>, Error> {
-  Crypter::<Private>::new()
+  Crypter::<Private>::with(MODULOUS)
 }
 
-pub fn from(key: &PublicKey) -> Result<Crypter<Public>, Error> {
+pub fn from(key: &PublicKey) -> Crypter<Public> {
   Crypter::<Public>::from(&key)
 }
 
@@ -56,17 +56,17 @@ pub struct Crypter<T: HasPublic> {
 }
 
 impl<T: HasPublic> Crypter<T> {
-  pub fn new() -> Result<Crypter<Private>, Error> {
-    let rsakey = Rsa::generate(MODULOUS)?;
+  pub fn with(modulous: u32) -> Result<Crypter<Private>, Error> {
+    let rsakey = Rsa::generate(modulous)?;
     Ok(Crypter {
       key: PKey::from_rsa(rsakey)?,
     })
   }
 
-  fn from(public_key: &PublicKey) -> Result<Crypter<Public>, Error> {
-    Ok(Crypter {
+  fn from(public_key: &PublicKey) -> Crypter<Public> {
+    Crypter {
       key: public_key.key.clone(),
-    })
+    }
   }
 
   pub fn public_key(&self) -> Result<PublicKey, Error> {

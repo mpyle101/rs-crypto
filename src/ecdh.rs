@@ -66,7 +66,7 @@ impl Deref for Secret {
   type Target = [u8];
 
   fn deref(&self) -> &Self::Target {
-    return &self.secret;
+    &self.secret
   }
 }
 

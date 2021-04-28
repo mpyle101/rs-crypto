@@ -27,7 +27,7 @@ pub fn encrypt(pkey: &PublicKey, secret: &Secret, data: &[u8]) -> Result<Vec<u8>
   thread_rng().fill_bytes(aeskey.deref_mut());
   let cipher = aes::encrypt(aeskey.as_ref(), data)?;
 
-  let crypter = crate::rsa::from(pkey)?;
+  let crypter = crate::rsa::from(pkey);
   let enckey = crypter.encrypt(aeskey.as_ref())?;
 
   let capacity = digest.len() + enckey.len() + cipher.len();
